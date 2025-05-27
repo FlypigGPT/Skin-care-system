@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <title>欢迎页面</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #eef3f9;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+    .container {
+      background: white;
+      padding: 40px;
+      border-radius: 12px;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+      width: 400px;
+      text-align: center;
+    }
+    .container h2 {
+      margin-bottom: 10px;
+    }
+    .container p {
+      margin: 5px 0;
+    }
+    .btn-group {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 25px;
+    }
+    button {
+      padding: 10px 20px;
+      background-color: #5c9ded;
+      border: none;
+      color: white;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+    button:hover {
+      background-color: #3c7dd9;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h2 id="welcome"></h2>
+  <p id="skin"></p>
+  <p id="created"></p>
+
+  <div class="btn-group">
+    <button onclick="goToRecord()">记录今日皮肤状态</button>
+    <button onclick="goToRecords()">查看皮肤记录</button>
+    <button onclick="goToPublic()">查看公开记录</button>
+    <button onclick="goToProfile()">修改个人资料</button>
+    <button onclick="logout()">退出登录</button>
+  </div>
+</div>
+
+<script>
+  const user = JSON.parse(localStorage.getItem('user'));
+  if (!user) {
+    alert('请先登录');
+    window.location.href = 'http://localhost:3000/login';
+  }
+
+  document.getElementById('welcome').innerText = `欢迎，${user.username}`;
+  document.getElementById('skin').innerText = `肤质类型：${user.skin_type}`;
+  document.getElementById('created').innerText = `注册时间：${user.created_at.split('T')[0]}`;
+
+  function goToRecord() {
+    window.location.href = 'skin_record.html';
+  }
+
+  function goToRecords() {
+    window.location.href = 'my_records.html';
+  }
+
+  function goToPublic() {
+    window.location.href = 'public_users.html';
+  }
+
+  function goToProfile() {
+    window.location.href = 'edit_profile.html';
+  }
+
+  function logout() {
+    localStorage.removeItem('user');
+    window.location.href = 'http://localhost:3000/login';
+  }
+</script>
+
+</body>
+</html>

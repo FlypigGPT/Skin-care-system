@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <title>记录皮肤状态</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f7f9;
+      padding: 30px;
+    }
+
+    .container {
+      max-width: 500px;
+      margin: auto;
+      background: white;
+      padding: 25px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+
+    h2 {
+      text-align: center;
+    }
+
+    label {
+      display: block;
+      margin-top: 15px;
+      font-weight: bold;
+    }
+
+    input[type="number"],
+    input[type="file"] {
+      width: 100%;
+      padding: 8px;
+      margin-top: 5px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+
+    input[type="checkbox"] {
+      margin-top: 10px;
+    }
+
+    button {
+      margin-top: 20px;
+      width: 100%;
+      padding: 10px;
+      background-color: #5c9ded;
+      border: none;
+      color: white;
+      font-size: 16px;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #3c7dd9;
+    }
+
+    #message {
+      margin-top: 15px;
+      text-align: center;
+      color: red;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>每日皮肤状态记录</h2>
+
+    <label for="oil_level">油脂值 (0-10)</label>
+    <input type="number" id="oil_level" min="0" max="10" />
+
+    <label for="acne_level">痘痘指数 (0-10)</label>
+    <input type="number" id="acne_level" min="0" max="10" />
+
+    <label for="dryness_level">干燥程度 (0-10)</label>
+    <input type="number" id="dryness_level" min="0" max="10" />
+
+    <label for="photo">上传照片</label>
+    <input type="file" id="photo" accept="image/*" />
+
+    <label>
+      <input type="checkbox" id="is_public" /> 是否公开
+    </label>
+
+    <button onclick="submitRecord()">提交记录</button>
+
+    <div id="message"></div>
+  </div>
+
+  <script>
+ function submitRecord() {
+  const user = JSON.parse(localStorage.getItem('user'));
+  if (!user || !user.id) {
+    alert("请先登录！");
+    window.location.href = 'login.html';
+    return;
+  }
+  const userId = user.id;
+
+  const oil_level = parseInt(document.getElementById('oil_level').value);
+  const acne_level = parseInt(document.getElementById('acne_level').value);
+  const dryness_level = parseInt(document.getElementById('dryness_level').value);
+  const is_public = document.getElementById('is_public').checked;
+  const message = document.getElementById('message');
+
+  const formData = new FormData();
+  formData.append('user_id', userId);
+  formData.append('oil_level', oil_level);
+  formData.append('acne_level', acne_level);
+  formData.append('dryness_level', dryness_level);
+  formData.append('is_public', is_public);
+  const photo = document.getElementById('photo').files[0];
+  if (photo) {
+    formData.append('photo', photo);
+  }
+
+  fetch('/api/skin-records', {
+    method: 'POST',
+    body: formData
+  })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        message.style.color = 'green';
+        message.innerText = '记录成功！';
+      } else {
+        message.style.color = 'red';
+        message.innerText = data.message || '提交失败';
+      }
+    })
+    .catch(err => {
+      console.error(err);
+      message.style.color = 'red';
+      message.innerText = '网络错误，请稍后重试';
+    });
+}
+  </script>
+</body>
+</html>

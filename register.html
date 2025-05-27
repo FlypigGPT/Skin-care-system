@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <title>用户注册</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f2f2f2;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+      width: 300px;
+      text-align: center;
+    }
+    input, select, button {
+      width: 100%;
+      padding: 10px;
+      margin: 8px 0;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+    }
+    button {
+      background-color: #5c9ded;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #3c7dd9;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h2>注册</h2>
+  <input id="username" placeholder="用户名">
+  <input id="password" type="password" placeholder="密码">
+  <select id="skin_type">
+    <option value="中性">中性</option>
+    <option value="油性">油性</option>
+    <option value="干性">干性</option>
+    <option value="混合性">混合性</option>
+    <option value="敏感性">敏感性</option>
+  </select>
+  <button onclick="register()">注册</button>
+</div>
+
+<script>
+  function register() {
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value.trim();
+    const skin_type = document.getElementById('skin_type').value;
+
+    if (!username || !password) {
+      alert('请填写完整的用户名和密码！');
+      return;
+    }
+
+    fetch('/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password, skin_type })
+    })
+    .then(res => res.json())
+    .then(data => {
+      console.log('注册返回:', data);
+      if (data.success) {
+        alert('注册成功！请前往登录页面登录');
+        window.location.href = 'login.html';
+      } else {
+        alert(data.message || '注册失败，请重试');
+      }
+    })
+    .catch(err => {
+      console.error('请求出错:', err);
+      alert('注册失败，请检查网络或联系管理员');
+    });
+  }
+</script>
+
+</body>
+</html>

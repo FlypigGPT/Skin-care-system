@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <title>公开记录详情</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f7f9;
+      padding: 30px;
+    }
+    .container {
+      max-width: 700px;
+      margin: auto;
+      background: white;
+      padding: 25px;
+      border-radius: 10px;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+    .record {
+      border-bottom: 1px solid #ccc;
+      padding: 15px 0;
+    }
+    .record img {
+      max-width: 150px;
+      border-radius: 6px;
+      margin-top: 10px;
+    }
+    .back-btn {
+      margin-top: 20px;
+    }
+    .comment-section {
+      background: #f9f9f9;
+      padding: 10px;
+      border-radius: 6px;
+      margin-top: 20px;
+    }
+    .comment-section textarea {
+      width: 100%;
+      height: 60px;
+      margin-top: 5px;
+    }
+    .comment {
+      font-size: 14px;
+      margin-top: 5px;
+      padding-left: 10px;
+      border-left: 3px solid #ccc;
+    }
+    .comment strong {
+      color: #4a90e2;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>用户的公开记录</h2>
+    <div id="records"></div>
+
+    <div class="comment-section">
+      <p><strong>评论区：</strong></p>
+      <div id="all-comments">加载评论中...</div>
+      <textarea id="comment-input" placeholder="写下你的评论..."></textarea>
+      <small style="color: #999;">字数限制：最多100字</small>
+      <button onclick="postComment()">提交评论</button>
+    </div>
+
+    <div class="back-btn"><a href="public_users.html">← 返回用户列表</a></div>
+  </div>
+
+<script>
+  const params = new URLSearchParams(window.location.search);
+  const userId = params.get('userId');
+  const currentUser = JSON.parse(localStorage.getItem('user'));
+
+  // 时间格式化函数
+  function formatDateTime(dateStr) {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const h = String(d.getHours()).padStart(2, '0');
+    const min = String(d.getMinutes()).padStart(2, '0');
+    return `${y}-${m}-${day} ${h}:${min}`;
+  }
+
+  if (!userId) {
+    document.getElementById('records').innerHTML = '<p>缺少用户ID，请返回重试。</p>';
+  } else {
+    fetch(`/api/public-records/${userId}`)
+      .then(res => res.json())
+      .then(data => {
+        const recordsDiv = document.getElementById('records');
+        if (!data.success || data.records.length === 0) {
+          recordsDiv.innerHTML = '<p>暂无公开记录</p>';
+          return;
+        }
+        data.records.forEach(record => {
+          const localDate = new Date(record.record_date).toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' });
+          const div = document.createElement('div');
+          div.className = 'record';
+          div.innerHTML = `
+            <strong>日期：</strong>${localDate}<br>
+            <strong>油脂值：</strong>${record.oil_level ?? '无'}，
+            <strong>痘痘：</strong>${record.acne_level ?? '无'}，
+            <strong>干燥：</strong>${record.dryness_level ?? '无'}<br>
+            ${record.photo_url ? `<img src="${record.photo_url}" alt="皮肤照片">` : ''}
+            <button onclick="likeRecord(${record.id})">👍 点赞</button>
+            <span id="like-count-${record.id}" style="margin-left:8px;color:#e67e22;"></span>
+          `;
+          recordsDiv.appendChild(div);
+          // 查询每条皮肤记录的点赞数
+          fetch(`/api/like-count/${record.id}`)
+            .then(res => res.json())
+            .then(likeData => {
+              document.getElementById(`like-count-${record.id}`).innerText = `共${likeData.count || 0}赞`;
+            });
+        });
+      })
+      .catch(err => {
+        console.error('加载失败', err);
+        document.getElementById('records').innerHTML = '<p>加载失败，请稍后重试。</p>';
+      });
+
+    loadComments();
+  }
+
+  function likeRecord(recordId) {
+    if (!currentUser || !currentUser.id) {
+      alert('请先登录再点赞');
+      return;
+    }
+    fetch('/api/like-record', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: currentUser.id, record_id: recordId })
+    })
+    .then(res => res.json())
+    .then(data => {
+      alert(data.message);
+    });
+  }
+
+  function loadComments() {
+    fetch(`/api/comments/${userId}`)
+      .then(res => res.json())
+      .then(data => {
+        const commentsDiv = document.getElementById('all-comments');
+        if (!data.success || !data.comments || data.comments.length === 0) {
+          commentsDiv.innerHTML = '<p>暂无评论</p>';
+        } else {
+          commentsDiv.innerHTML = '';
+          data.comments.forEach(c => {
+            const div = document.createElement('div');
+            div.className = 'comment';
+            div.innerHTML = `
+              <strong>${c.username}：</strong>${c.content} <small>(${formatDateTime(c.created_at)})</small>
+              <button onclick="showReplyInput(${c.id})">回复</button>
+              <div id="reply-input-${c.id}" style="margin-top:5px;"></div>
+              ${c.replies && c.replies.length > 0 ? c.replies.map(r => `<div style=\"margin-left:20px;font-size:13px;\"><strong>${r.username} 回复：</strong>${r.content} <small>(${formatDateTime(r.created_at)})</small></div>`).join('') : ''}
+            `;
+            commentsDiv.appendChild(div);
+          });
+        }
+      })
+      .catch(err => {
+        console.error('加载评论失败', err);
+        document.getElementById('all-comments').innerHTML = '<p>评论加载失败</p>';
+      });
+  }
+
+  function postComment() {
+    const content = document.getElementById('comment-input').value.trim();
+    if (!content) {
+      alert('请输入评论内容');
+      return;
+    }
+    if (content.length > 100) {
+      alert('评论内容不能超过100字');
+      return;
+    }
+    if (!currentUser || !currentUser.id) {
+      alert('请先登录再发表评论');
+      return;
+    }
+    fetch('/api/comments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: currentUser.id, target_user_id: userId, content })
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          document.getElementById('comment-input').value = '';
+          loadComments();
+        } else {
+          alert(data.message || '评论失败');
+        }
+      })
+      .catch(err => {
+        console.error('提交评论失败', err);
+        alert('提交失败，请重试');
+      });
+  }
+
+  function showReplyInput(commentId) {
+    const div = document.getElementById(`reply-input-${commentId}`);
+    div.innerHTML = `
+      <textarea id="reply-content-${commentId}" placeholder="输入回复内容..."></textarea>
+      <button onclick="submitReply(${commentId})">提交回复</button>
+    `;
+  }
+
+  function submitReply(commentId) {
+    const content = document.getElementById(`reply-content-${commentId}`).value.trim();
+    if (!content) {
+      alert('请输入回复内容');
+      return;
+    }
+    if (!currentUser || !currentUser.id) {
+      alert('请先登录再回复');
+      return;
+    }
+    fetch('/api/reply-comment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        user_id: currentUser.id,
+        parent_comment_id: commentId,
+        content
+      })
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        alert('回复成功');
+        loadComments();
+      } else {
+        alert(data.message || '回复失败');
+      }
+    });
+  }
+</script>
+
+</body>
+</html>

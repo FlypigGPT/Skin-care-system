@@ -1,0 +1,154 @@
+\*
+ *我真不是AI写的
+ * 修改个人资料页面
+ * 用户可以修改用户名、皮肤类型和密码
+ * 提交后更新用户信息并返回主页
+ * 如果未登录则跳转到登录页面
+ */
+
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <title>修改个人资料</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #eef3f9;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+      width: 400px;
+    }
+
+    h2 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      margin-top: 10px;
+      font-weight: bold;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 8px;
+      margin-top: 5px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+    }
+
+    button {
+      margin-top: 20px;
+      width: 100%;
+      padding: 10px;
+      background-color: #5c9ded;
+      border: none;
+      color: white;
+      font-size: 16px;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #3c7dd9;
+    }
+
+    #message {
+      margin-top: 15px;
+      text-align: center;
+      color: red;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>修改个人资料</h2>
+
+    <label for="username">用户名</label>
+    <input type="text" id="username" />
+
+    <label for="skin_type">皮肤类型</label>
+    <select id="skin_type">
+      <option value="油性">油性</option>
+      <option value="干性">干性</option>
+      <option value="混合型">混合型</option>
+      <option value="敏感型">敏感型</option>
+    </select>
+
+    <label for="password">新密码（可留空）</label>
+    <input type="password" id="password" placeholder="不修改则留空" />
+
+    <button onclick="updateProfile()">保存修改</button>
+    <button onclick="goHome()">返回主页</button>
+
+    <div id="message"></div>
+  </div>
+
+  <script>
+    const user = JSON.parse(localStorage.getItem('user'));
+    if (!user) {
+      alert("请先登录！");
+      window.location.href = 'login.html';
+    }
+
+    // 预填充表单
+    document.getElementById('username').value = user.username;
+    document.getElementById('skin_type').value = user.skin_type;
+
+    function updateProfile() {
+      const username = document.getElementById('username').value.trim();
+      const skin_type = document.getElementById('skin_type').value;
+      const password = document.getElementById('password').value;
+      const message = document.getElementById('message');
+
+      if (!username) {
+        message.innerText = '用户名不能为空';
+        return;
+      }
+
+      const body = {
+        username,
+        skin_type,
+        ...(password && { password })
+      };
+
+      fetch('/api/users/' + user.id, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            message.style.color = 'green';
+            message.innerText = '更新成功';
+            localStorage.setItem('user', JSON.stringify(data.user));
+          } else {
+            message.style.color = 'red';
+            message.innerText = data.message || '更新失败';
+          }
+        })
+        .catch(err => {
+          console.error(err);
+          message.style.color = 'red';
+          message.innerText = '请求出错，请稍后重试';
+        });
+    }
+
+     function goHome() {
+    window.location.href = 'home.html';
+    }
+  </script>
+</body>
+</html>

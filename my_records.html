@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <title>我的皮肤记录</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f7f9;
+      padding: 30px;
+    }
+
+    .container {
+      max-width: 700px;
+      margin: auto;
+      background: white;
+      padding: 25px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+
+    h2 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .record {
+      border-bottom: 1px solid #ccc;
+      padding: 15px 0;
+    }
+
+    .record img {
+      max-width: 150px;
+      margin-top: 10px;
+      border-radius: 6px;
+    }
+
+    .record button {
+      margin-top: 10px;
+      padding: 6px 12px;
+      background-color: #e74c3c;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .record button:hover {
+      background-color: #c0392b;
+    }
+
+    .back-btn {
+      display: block;
+      margin-top: 20px;
+      text-align: center;
+    }
+
+    .back-btn a {
+      padding: 8px 15px;
+      background-color: #5c9ded;
+      color: white;
+      border-radius: 8px;
+      text-decoration: none;
+    }
+
+    .back-btn a:hover {
+      background-color: #3c7dd9;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>我的皮肤记录</h2>
+    <div id="records"></div>
+    <div class="back-btn"><a href="home.html">返回首页</a></div>
+  </div>
+
+  <script>
+    const user = JSON.parse(localStorage.getItem('user'));
+    if (!user) {
+      alert('请先登录');
+      window.location.href = 'login.html';
+    }
+
+    // 加载用户皮肤记录
+    fetch(`/api/skin-records/${user.id}`)
+      .then(res => res.json())
+      .then(data => {
+        const recordsDiv = document.getElementById('records');
+
+        if (!data.success || data.records.length === 0) {
+          recordsDiv.innerHTML = '<p>暂无记录</p>';
+          return;
+        }
+
+        data.records.forEach(record => {
+          const localDate = new Date(record.record_date).toLocaleDateString('zh-CN', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit'
+          });
+
+          const div = document.createElement('div');
+          div.className = 'record';
+          div.innerHTML = `
+            <strong>日期：</strong>${localDate}<br>
+            油脂值：${record.oil_level ?? '无'}，
+            痘痘：${record.acne_level ?? '无'}，
+            干燥：${record.dryness_level ?? '无'}<br>
+            是否公开：${record.is_public ? '是' : '否'}<br>
+            ${record.photo_url ? `<img src="${record.photo_url}" alt="皮肤照片">` : ''}<br>
+            <button onclick="deleteRecord(${record.id}, this)">删除记录</button>
+          `;
+          recordsDiv.appendChild(div);
+        });
+      })
+      .catch(err => {
+        console.error('加载失败', err);
+        document.getElementById('records').innerHTML = '<p>加载失败，请稍后重试。</p>';
+      });
+
+    // 删除记录函数
+    function deleteRecord(recordId, buttonElement) {
+      const user = JSON.parse(localStorage.getItem('user'));
+      if (!user) {
+        alert('请先登录');
+        window.location.href = 'login.html';
+        return;
+      }
+
+      if (!confirm('确认删除这条记录吗？')) return;
+
+      fetch(`/api/skin-records/${recordId}?user_id=${user.id}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' }
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          buttonElement.parentElement.remove();
+          alert('删除成功');
+        } else {
+          alert(data.message || '删除失败');
+        }
+      })
+      .catch(err => {
+        console.error('删除失败', err);
+        alert('删除失败，请稍后再试');
+      });
+    }
+  </script>
+</body>
+</html>
