@@ -11,7 +11,8 @@ const port = 3000;
 // 中间件
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname)));
+// 托管 html 静态文件
+app.use(express.static(__dirname, { extensions: ['html'] }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // 数据库连接
@@ -226,8 +227,12 @@ app.post('/api/comments', (req, res) => {
   db.query(`
     INSERT INTO comments (user_id, target_user_id, content, created_at)
     VALUES (?, ?, ?, NOW())
-  `, [user_id, target_user_id, content], (err) => {
+  `, [user_id, target_user_id, content], (err, result) => {
     if (err) return res.status(500).json({ success: false, message: '插入失败' });
+    // 新增：评论时发送通知
+    if (user_id !== target_user_id) {
+      sendNotification({ user_id: target_user_id, type: 'comment', from_user_id: user_id, comment_id: result.insertId });
+    }
     res.json({ success: true, message: '评论成功' });
   });
 });
@@ -248,6 +253,12 @@ app.post('/api/like-record', (req, res) => {
     } else {
       db.query('INSERT INTO likes (user_id, record_id) VALUES (?, ?)', [user_id, record_id], (err2) => {
         if (err2) return res.json({ success: false, message: '点赞失败' });
+        // 新增：点赞时发送通知
+        db.query('SELECT user_id FROM skin_records WHERE id = ?', [record_id], (err3, rows) => {
+          if (!err3 && rows && rows[0] && rows[0].user_id !== user_id) {
+            sendNotification({ user_id: rows[0].user_id, type: 'like', from_user_id: user_id, record_id });
+          }
+        });
         res.json({ success: true, liked: true, message: '点赞成功' });
       });
     }
@@ -261,51 +272,56 @@ app.post('/api/reply-comment', (req, res) => {
     return res.json({ success: false, message: '缺少参数' });
   }
   db.query('INSERT INTO replies (comment_id, user_id, content, created_at) VALUES (?, ?, ?, NOW())', [parent_comment_id, user_id, content], (err) => {
+    if (!err) {
+      // 查找原评论作者
+      db.query('SELECT user_id FROM comments WHERE id = ?', [parent_comment_id], (err2, rows) => {
+        if (!err2 && rows && rows[0] && rows[0].user_id !== user_id) {
+          sendNotification({ user_id: rows[0].user_id, type: 'reply', from_user_id: user_id, comment_id: parent_comment_id });
+        }
+      });
+    }
     if (err) return res.json({ success: false, message: '回复失败' });
     res.json({ success: true });
   });
 });
 
-// 修改获取评论接口
-app.get('/api/comments/:userId', (req, res) => {
+// ========== 消息通知相关 ========== //
+// 通用通知插入函数
+function sendNotification({ user_id, type, from_user_id, record_id = null, comment_id = null }) {
+  db.query(
+    'INSERT INTO notifications (user_id, type, from_user_id, record_id, comment_id) VALUES (?, ?, ?, ?, ?)',
+    [user_id, type, from_user_id, record_id, comment_id],
+    (err) => {
+      if (err) console.error('通知插入失败:', err);
+    }
+  );
+}
+
+// 获取用户未读通知
+app.get('/api/notifications/:userId', (req, res) => {
   const userId = req.params.userId;
-  const sql = `
-    SELECT c.*, u.username FROM comments c
-    LEFT JOIN users u ON c.user_id = u.id
-    WHERE c.target_user_id = ?
-    ORDER BY c.created_at DESC
-  `;
-  db.query(sql, [userId], (err, comments) => {
-    if (err) return res.json({ success: false, message: '加载评论失败' });
-
-    const commentIds = comments.map(c => c.id);
-    if (commentIds.length === 0) return res.json({ success: true, comments: [] });
-
-    db.query('SELECT r.*, u.username FROM replies r LEFT JOIN users u ON r.user_id = u.id WHERE comment_id IN (?)', [commentIds], (err2, replies) => {
-      if (err2) return res.json({ success: false, message: '加载回复失败' });
-
-      const replyMap = {};
-      replies.forEach(r => {
-        if (!replyMap[r.comment_id]) replyMap[r.comment_id] = [];
-        replyMap[r.comment_id].push(r);
-      });
-
-      const final = comments.map(c => ({
-        ...c,
-        replies: replyMap[c.id] || []
-      }));
-
-      res.json({ success: true, comments: final });
-    });
-  });
+  db.query(
+    `SELECT n.*, u.username AS from_username, c.content AS comment_content
+     FROM notifications n
+     LEFT JOIN users u ON n.from_user_id = u.id
+     LEFT JOIN comments c ON n.comment_id = c.id
+     WHERE n.user_id = ? AND n.is_read = 0
+     ORDER BY n.id DESC
+     LIMIT 50`,
+    [userId],
+    (err, results) => {
+      if (err) return res.json({ success: false, message: '查询失败' });
+      res.json({ success: true, notifications: results });
+    }
+  );
 });
 
-// 查询皮肤记录点赞数
-app.get('/api/like-count/:recordId', (req, res) => {
-  const recordId = req.params.recordId;
-  db.query('SELECT COUNT(*) AS count FROM likes WHERE record_id = ?', [recordId], (err, results) => {
-    if (err) return res.json({ count: 0 });
-    res.json({ count: results[0].count });
+// 标记所有通知为已读
+app.post('/api/notifications/read', (req, res) => {
+  const { user_id } = req.body;
+  db.query('UPDATE notifications SET is_read = 1 WHERE user_id = ?', [user_id], (err) => {
+    if (err) return res.status(500).json({ success: false, message: '更新失败' });
+    res.json({ success: true });
   });
 });
 
@@ -317,5 +333,5 @@ app.get('/', (req, res) => {
 
 // 启动服务器
 app.listen(port, () => {
-  console.log(`服务器运行中：http://localhost:${port}`);
+  console.log(`服务器正在运行在 http://localhost:${port}`);
 });

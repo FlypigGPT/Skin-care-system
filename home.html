@@ -60,6 +60,7 @@
     <button onclick="goToProfile()">修改个人资料</button>
     <button onclick="goToSupport()">打赏</button>
     <button onclick="logout()">退出登录</button>
+    <button onclick="goToNotifications()">消息通知</button>
   </div>
 </div>
 
@@ -97,6 +98,10 @@
   function logout() {
     localStorage.removeItem('user');
     window.location.href = 'http://localhost:3000/login';
+  }
+
+  function goToNotifications() {
+    window.location.href = 'notifications.html';
   }
 </script>
 
