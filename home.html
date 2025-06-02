@@ -58,9 +58,10 @@
     <button onclick="goToRecords()">查看皮肤记录</button>
     <button onclick="goToPublic()">查看公开记录</button>
     <button onclick="goToProfile()">修改个人资料</button>
-    <button onclick="goToSupport()">打赏</button>
-    <button onclick="logout()">退出登录</button>
     <button onclick="goToNotifications()">消息通知</button>
+    <button onclick="goToStats()">皮肤状态统计</button>
+    <button onclick="goToSupport()">打赏</button>
+    <button onclick="logout()">退出登录</button>    
   </div>
 </div>
 
@@ -102,6 +103,10 @@
 
   function goToNotifications() {
     window.location.href = 'notifications.html';
+  }
+
+  function goToStats() {
+    window.location.href = 'skin_stats.html';
   }
 </script>
 

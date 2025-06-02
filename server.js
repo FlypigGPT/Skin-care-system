@@ -331,6 +331,27 @@ app.get('/', (req, res) => {
   res.redirect('/login.html');
 });
 
+// 获取用户最近7天皮肤状态均值
+app.get('/api/skin-stats/:userId', (req, res) => {
+  const userId = req.params.userId;
+  db.query(
+    `SELECT 
+        DATE(record_date) AS date,
+        AVG(oil_level) AS avg_oil,
+        AVG(acne_level) AS avg_acne,
+        AVG(dryness_level) AS avg_dry
+     FROM skin_records
+     WHERE user_id = ? AND record_date >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+     GROUP BY DATE(record_date)
+     ORDER BY date ASC`,
+    [userId],
+    (err, results) => {
+      if (err) return res.json({ success: false, message: '统计失败' });
+      res.json({ success: true, stats: results });
+    }
+  );
+});
+
 // 启动服务器
 app.listen(port, () => {
   console.log(`服务器正在运行在 http://localhost:${port}`);

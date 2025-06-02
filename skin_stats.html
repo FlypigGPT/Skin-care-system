@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <title>皮肤状态统计</title>
+  <script src="https://cdn.jsdelivr.net/npm/echarts/dist/echarts.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f4f7f9; margin: 0; }
+    .container { max-width: 700px; margin: 40px auto; background: #fff; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); padding: 30px; }
+    h2 { text-align: center; }
+    #skin-stats-chart { width: 100%; height: 350px; margin: 30px 0; }
+    .back-btn { margin-top: 20px; text-align: center; }
+    .back-btn a { color: #5c9ded; text-decoration: none; }
+    .back-btn a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>最近7天皮肤状态趋势</h2>
+    <div id="skin-stats-chart">加载中...</div>
+    <div class="back-btn"><a href="home.html">← 返回首页</a></div>
+  </div>
+<script>
+const user = JSON.parse(localStorage.getItem('user'));
+if (!user) {
+  alert('请先登录');
+  window.location.href = 'login.html';
+}
+fetch(`/api/skin-stats/${user.id}`)
+  .then(res => res.json())
+  .then(data => {
+    if (!data.success) {
+      document.getElementById('skin-stats-chart').innerText = '统计数据加载失败';
+      return;
+    }
+    const dates = data.stats.map(s => {
+      // 只保留月和日，去除年份和前导0
+      const d = s.date.split('-');
+      return parseInt(d[1], 10) + '月' + parseInt(d[2], 10) + '日';
+    });
+    const oil = data.stats.map(s => s.avg_oil);
+    const acne = data.stats.map(s => s.avg_acne);
+    const dry = data.stats.map(s => s.avg_dry);
+    const chart = echarts.init(document.getElementById('skin-stats-chart'));
+    chart.setOption({
+      title: { text: '', left: 'center' },
+      tooltip: { trigger: 'axis' },
+      legend: { data: ['油脂', '痘痘', '干燥'], top: 10 },
+      xAxis: { type: 'category', data: dates },
+      yAxis: { type: 'value', min: 0 },
+      series: [
+        { name: '油脂', type: 'line', data: oil },
+        { name: '痘痘', type: 'line', data: acne },
+        { name: '干燥', type: 'line', data: dry }
+      ]
+    });
+  })
+  .catch(() => {
+    document.getElementById('skin-stats-chart').innerText = '统计数据加载失败';
+  });
+</script>
+</body>
+</html>
